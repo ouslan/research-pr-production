@@ -1,0 +1,15 @@
+[project]
+name = "prprod_repl"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [{ name = "Alejandro Ouslan", email = "alejandro.ouslan@upr.edu" }]
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+research-pr-production = "prprod_repl:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
