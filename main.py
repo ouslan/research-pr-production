@@ -1,8 +1,8 @@
-from prprod_repl import temp
+from jp_qcew import CleanQCEW
 
 
 def main():
-    temp()
+    return CleanQCEW(saving_dir="data/").make_qcew_dataset()
 
 
 if __name__ == "__main__":
