@@ -4,8 +4,11 @@ version = "0.1.1"
 description = "Add your description here"
 readme = "README.md"
 authors = [{ name = "Alejandro Ouslan", email = "alejandro.ouslan@upr.edu" }]
-requires-python = ">=3.11"
-dependencies = []
+requires-python = ">=3.12"
+dependencies = [
+    "jp-imports>=1.1.0",
+    "jp-qcew>=3.2.1",
+]
 
 [project.scripts]
 research-pr-production = "prprod_repl:main"
