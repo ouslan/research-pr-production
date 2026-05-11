@@ -220,3 +220,4 @@ __marimo__/
 *.csv
 *.parquet
 /data/qcew
+*.ddb

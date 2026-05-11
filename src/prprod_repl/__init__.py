@@ -1,7 +1,4 @@
 from importlib.metadata import version
+from .utils import ProdRepl
 
 __version__ = version("prprod_repl")
-
-
-def temp() -> None:
-    print("Hello from research-pr-production!")
