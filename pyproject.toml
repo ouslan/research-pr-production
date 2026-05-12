@@ -27,5 +27,6 @@ build-backend = "hatchling.build"
 dev = [
     "jupyter>=1.1.1",
     "jupytext>=1.19.2",
+    "pre-commit>=4.6.0",
     "pynvim>=0.6.0",
 ]
