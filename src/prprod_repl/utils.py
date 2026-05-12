@@ -5,6 +5,8 @@ from pathlib import Path
 import geopandas as gpd
 import tempfile
 import hashlib
+import pandas as pd
+from thefuzz import process, fuzz
 
 
 class ProdRepl(JPTrade):
@@ -96,13 +98,35 @@ class ProdRepl(JPTrade):
             ["year", "month", "sector_code", "qtr", "phys_addr_city"]
         ).agg(pl.col("employment").sum())
 
+        df_muni_monthly = df_muni_monthly.with_columns(
+            name=(
+                pl.col("phys_addr_city")
+                .str.normalize("NFD")
+                .str.replace_all(r"[\u0300-\u036f]", "")
+                .str.to_lowercase()
+                .str.replace_all("  ", "_")
+                .str.replace_all(" ", "_")
+            )
+        )
+
         return df_muni_monthly
 
-    def data_imports(self):
+    def data_imports(self) -> pl.DataFrame:
         df_imports = self.process_int_jp(level="naics", time_frame="monthly")
         df_imports = df_imports.with_columns(
             sector_code=pl.col("naics").str.slice(0, 2)
         )
+        df_imports = df_imports.group_by(["year", "month", "sector_code"]).agg(
+            pl.col(
+                "imports",
+                "imports_qty",
+                "exports",
+                "exports_qty",
+                "net_exports",
+                "net_qty",
+            ).sum()
+        )
+        return df_imports
 
     def county_geom(self) -> gpd.GeoDataFrame:
         """
@@ -156,4 +180,55 @@ class ProdRepl(JPTrade):
         return gpd.read_parquet(path=file_path)
 
     def reg_data(self):
-        pass
+        file_path = Path(self.saving_dir) / "raw" / "data.parquet"
+
+        if not file_path.exists():
+            df_qcew = self.data_qcew().to_pandas()
+            gdf = self.county_geom()[["name", "geoid"]]
+            gdf = pl.DataFrame(gdf)
+            gdf = gdf.with_columns(
+                pl.col("name")
+                .str.normalize("NFD")
+                .str.replace_all(r"[\u0300-\u036f]", "")
+                .str.to_lowercase()
+                .str.replace_all(" ", "_")
+            )
+            gdf = gdf.to_pandas()
+            # 2. Get the list of 'correct' names from df2
+            correct_names = gdf["name"].tolist()
+
+            # 3. Create a new column in df that maps to the closest correct name
+            df_qcew["matched_name"] = df_qcew["name"].apply(
+                lambda x: self.get_best_match(x, correct_names)
+            )
+
+            # 4. Merge df with df2 based on the new matched column
+            result = pd.merge(
+                df_qcew,
+                gdf,
+                left_on="matched_name",
+                right_on="name",
+                suffixes=("_original", "_cleaned"),
+            )
+            data = pl.DataFrame(result)
+            data = data.with_columns(name="name_cleaned")
+            data = data.group_by(["year", "month", "sector_code", "qtr", "name"]).agg(
+                pl.col("employment").sum()
+            )
+            data = data.join(
+                self.data_imports(),
+                on=["year", "month", "sector_code"],
+                how="inner",
+                validate="m:1",
+            )
+            data.write_parquet(file_path)
+            return data
+        else:
+            return pl.read_parquet(file_path)
+
+    def get_best_match(self, name, choices, threshold=80):
+        # process.extractOne returns (match, score, index)
+        match, score = process.extractOne(name, choices, scorer=fuzz.token_sort_ratio)
+
+        # Only return the match if it's "good enough"
+        return match if score >= threshold else None
