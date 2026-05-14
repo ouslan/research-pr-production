@@ -1,6 +1,3 @@
-% UPRM Theme for the tikzposter package.
-% Modified from SUtheme.sty
-
 % -- COLORS --
 
 % UPRM Primary Palette
@@ -26,9 +23,9 @@
     % background
     \colorlet{backgroundcolor}{white}
     \colorlet{framecolor}{white}
-    % title colors
-    \colorlet{titlefgcolor}{white}
-    \colorlet{titlebgcolor}{UPRMGreen}
+    % title colors - MODIFIED: White background, Green text
+    \colorlet{titlefgcolor}{UPRMGreen}
+    \colorlet{titlebgcolor}{white}
     % block colors
     \colorlet{blocktitlebgcolor}{colorOne}
     \colorlet{blocktitlefgcolor}{white}
@@ -55,10 +52,14 @@
 
 % title
 \definetitlestyle{UPRMTitleStyle}{
-    width=\textwidth, linewidth=5pt, titletotopverticalspace=0in
+    width=\textwidth, linewidth=2pt, titletotopverticalspace=0in
 }{
     \begin{scope}[line width=\titlelinewidth,]
-        \draw[color=UPRMGold, fill=titlebgcolor,round cap-round cap, ]
+        % Draws the background box
+        \draw[color=titlebgcolor, fill=titlebgcolor]
+        (\titleposleft,\titleposbottom) rectangle (\titleposright,\titlepostop);
+        % Draws the gold separator line at the bottom
+        \draw[color=UPRMGold, line width=5pt]
         (\titleposleft,\titleposbottom)--(\titleposright,\titleposbottom);
     \end{scope}
 }
@@ -102,6 +103,7 @@
         \vspace*{1em}
         {\LARGE \@institute}
     \end{minipage}%
+    % The logo/graphic node
     \tikz[remember picture,overlay]\node[anchor=south east,xshift=0.5\linewidth,inner sep=0pt] {%
         \@titlegraphic
     };
