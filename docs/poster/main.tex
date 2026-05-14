@@ -1,10 +1,10 @@
 \documentclass[20pt,,margin=1in,innermargin=-4.5in,blockverticalspace=-0.25in]{tikzposter}
-\geometry{paperwidth=42in,paperheight=32.5in}
+\geometry{paperwidth=42in, paperheight=32.5in, top=0.1in}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath, amsfonts, amsthm, amssymb, mathrsfs}
 \usepackage{graphicx, adjustbox, enumitem}
 \usepackage[backend=biber,style=numeric]{biblatex}
-\usepackage{SUtheme}
+\usepackage{UPRMtheme}
 \usepackage{mwe}
 
 \addbibresource{refs.bib}
@@ -22,7 +22,11 @@
 \title{Estimating Municipality Cobb-Douglas Production Function}
 \author{Alejandro Ouslan}
 \institute{University of Puerto Rico at Mayagüez}
-\titlegraphic{\includegraphics[width=0.06\textwidth]{assets/logo.png}}
+\titlegraphic{
+    \includegraphics[width=0.1\textwidth]{assets/uprm_logo.png} 
+    \hfill 
+    \includegraphics[width=0.1\textwidth]{assets/math_logo.png}
+}
 
 \begin{document}
 \maketitle
