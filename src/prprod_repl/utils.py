@@ -1,12 +1,16 @@
-from jp_imports import JPTrade
-import polars as pl
-from jp_tools import download
-from pathlib import Path
-import geopandas as gpd
-import tempfile
 import hashlib
+import os
+import tempfile
+from pathlib import Path
+
+import geopandas as gpd
+import numpy as np
 import pandas as pd
-from thefuzz import process, fuzz
+import polars as pl
+import pymc as pm
+from jp_imports import JPTrade
+from jp_tools import download
+from thefuzz import fuzz, process
 
 
 class ProdRepl(JPTrade):
@@ -182,7 +186,7 @@ class ProdRepl(JPTrade):
     def reg_data(self):
         file_path = Path(self.saving_dir) / "raw" / "data.parquet"
 
-        if not file_path.exists():
+        if file_path.exists():
             df_qcew = self.data_qcew().to_pandas()
             gdf = self.county_geom()[["name", "geoid"]]
             gdf = pl.DataFrame(gdf)
@@ -211,20 +215,234 @@ class ProdRepl(JPTrade):
                 suffixes=("_original", "_cleaned"),
             )
             data = pl.DataFrame(result)
-            data = data.with_columns(name="name_cleaned")
-            data = data.group_by(["year", "month", "sector_code", "qtr", "name"]).agg(
-                pl.col("employment").sum()
+            data = data.with_columns(muni="name_cleaned")
+            data = (
+                data.group_by(["year", "month", "muni", "sector_code"])
+                .agg(pl.col("employment").sum())
+                .sort(["year", "month", "muni", "sector_code"])
+            )
+            data = self.data_trace(data.to_pandas())
+            data = pl.DataFrame(data)
+            data = data.group_by(["year", "month", "muni"]).agg(
+                capital_synth=pl.col("synthetic_imports").sum(),
+                labour=pl.col("employment").sum(),
+            )
+            energy = self.data_energy()
+            energy = energy.with_columns(
+                muni=(
+                    pl.col("muni")
+                    .str.normalize("NFD")
+                    .str.replace_all(r"[\u0300-\u036f]", "")
+                    .str.to_lowercase()
+                    .str.replace_all("  ", "_")
+                    .str.replace_all(" ", "_")
+                )
             )
             data = data.join(
-                self.data_imports(),
-                on=["year", "month", "sector_code"],
-                how="inner",
-                validate="m:1",
+                energy, on=["year", "month", "muni"], how="inner", validate="1:1"
             )
             data.write_parquet(file_path)
+
             return data
         else:
             return pl.read_parquet(file_path)
+
+    def data_trace(self, new_df):
+        df_qcew = (
+            self.data_qcew()
+            .group_by(["year", "month", "sector_code"])
+            .agg(pl.col("employment").sum())
+        )
+        df_imports = self.data_imports()
+        df = df_qcew.join(
+            df_imports, on=["year", "month", "sector_code"], how="inner", validate="1:1"
+        ).to_pandas()
+
+        time_coords = (
+            df[["year", "month"]].drop_duplicates().sort_values(["year", "month"])
+        )
+        time_coords["time_idx"] = range(len(time_coords))
+
+        # Merge this index back into the main dataframe
+        df = df.merge(time_coords, on=["year", "month"], how="left")
+
+        # 2. Preprocessing categorical indexes
+        df["sector_idx"], sectors = pd.factorize(df["sector_code"])
+
+        n_sectors = len(sectors)
+        n_periods = len(time_coords)  # Total number of months in the timeseries
+
+        # Coordinate system for the model
+        coords = {
+            "time": range(n_periods),
+            "sector": sectors,
+            "fourier_features": ["sin", "cos"],
+        }
+        coords["obs_id"] = np.arange(len(df))
+        month_scaled = 2 * np.pi * df["month"].values / 12
+        sin_t = np.sin(month_scaled)
+        cos_t = np.cos(month_scaled)
+
+        with pm.Model(coords=coords) as import_model:
+            # --- 1. Data Containers ---
+            # Use ConstantData for arrays. This converts them to PyTensor types automatically.
+            s_idx = pm.Data("s_idx", df["sector_idx"].values, dims="obs_id")
+            t_idx = pm.Data("t_idx", df["time_idx"].values, dims="obs_id")
+            log_emp = pm.Data(
+                "log_emp", np.log(df["employment"].values + 1), dims="obs_id"
+            )
+
+            # --- 2. Sector-Level Random Walk (Non-Centered) ---
+            state_drift_mu = pm.Normal("state_drift_mu", mu=0, sigma=0.01)
+            sector_drift = pm.Normal(
+                "sector_drift", mu=state_drift_mu, sigma=0.05, dims="sector"
+            )
+            sigma_rw = pm.Exponential("sigma_rw", 2.0)
+
+            z_innovations = pm.Normal("z_innovations", 0, 1, dims=("sector", "time"))
+
+            init_val = np.log(df.groupby("sector_idx")["imports"].first().values + 1)
+            init_import = pm.Normal(
+                "init_import", mu=init_val, sigma=0.5, dims="sector"
+            )
+
+            # Path calculation
+            rw_component = (z_innovations * sigma_rw).cumsum(axis=1)
+            # Using np.arange is fine here as it broadcasts against the tensor
+            drift_component = sector_drift[:, None] * np.arange(n_periods)
+
+            sector_path = pm.Deterministic(
+                "sector_path",
+                init_import[:, None] + drift_component + rw_component,
+                dims=("sector", "time"),
+            )
+
+            # --- 3. Fourier Seasonality ---
+            beta_fourier = pm.Normal(
+                "beta_fourier", mu=0, sigma=0.5, dims=("sector", "fourier_features")
+            )
+
+            # Corrected: Ensure sin_t and cos_t are also treated as data/tensors
+            s_t = pm.Data("sin_t", sin_t, dims="obs_id")
+            c_t = pm.Data("cos_t", cos_t, dims="obs_id")
+
+            seasonality = beta_fourier[s_idx, 0] * s_t + beta_fourier[s_idx, 1] * c_t
+
+            # --- 5. Employment Relationship ---
+            beta_employment = pm.HalfNormal("beta_employment", sigma=1.0)
+
+            # --- 6. Expected Value ---
+            mu = pm.Deterministic(
+                "mu",
+                sector_path[s_idx, t_idx] + (beta_employment * log_emp) + seasonality,
+                dims="obs_id",
+            )
+
+            # --- 7. Likelihood ---
+            sigma_obs = pm.Exponential("sigma_obs", 1.0)
+            nu = pm.Exponential("nu", 0.1) + 1
+
+            pm.StudentT(
+                "obs",
+                nu=nu,
+                mu=mu,
+                sigma=sigma_obs,
+                observed=np.log(df["imports"].values + 1),
+                dims="obs_id",
+            )
+
+            trace = pm.sample(1000, tune=1000, target_accept=0.95)
+
+            new_df["sector_idx"] = pd.Categorical(
+                new_df["sector_code"], categories=sectors
+            ).codes
+
+            # 2. Map Year/Month to the same time_idx used in training
+            # time_coords is the dataframe with columns ['year', 'month', 'time_idx']
+            new_df = new_df.merge(
+                time_coords[["year", "month", "time_idx"]],
+                on=["year", "month"],
+                how="left",
+            )
+
+            # 3. Calculate Fourier features for the specific months in new_df
+            new_month_scaled = 2 * np.pi * new_df["month"].values / 12
+            new_sin_t = np.sin(new_month_scaled)
+            new_cos_t = np.cos(new_month_scaled)
+
+            # 4. Log-transform employment
+            new_log_emp = np.log(new_df["employment"].values + 1)
+
+        # 1. Check for missing indices after the merge
+        if new_df["time_idx"].isnull().any():
+            print(
+                "Warning: Some rows in new_df don't have a matching time_idx. Dropping them."
+            )
+            new_df = new_df.dropna(subset=["time_idx", "sector_idx"])
+
+        # 2. Prepare the values directly from existing columns
+        # Make sure "employment" is the correct name of your column in new_df
+        new_s_idx = new_df["sector_idx"].values.astype("int32")
+        new_t_idx = new_df["time_idx"].values.astype("int32")
+
+        # Calculate log(emp + 1) and force float64
+        new_log_emp_values = np.log(new_df["employment"].values + 1).astype("float64")
+
+        # Re-calculate Fourier features for the new months if you haven't yet
+        new_month_scaled = 2 * np.pi * new_df["month"].values / 12
+        new_sin_t = np.sin(new_month_scaled).astype("float64")
+        new_cos_t = np.cos(new_month_scaled).astype("float64")
+
+        with import_model:
+            # 1. Update the data as before
+            pm.set_data(
+                new_data={
+                    "s_idx": new_s_idx,
+                    "t_idx": new_t_idx,
+                    "log_emp": new_log_emp_values,
+                    "sin_t": new_sin_t,
+                    "cos_t": new_cos_t,
+                },
+                coords={"obs_id": np.arange(len(new_df))},
+            )
+
+            # 2. Add 'predictions=True' to avoid coordinate conflicts with training data
+            post_pred = pm.sample_posterior_predictive(
+                trace, var_names=["obs"], predictions=True
+            )
+
+        # 3. Extract from the 'predictions' group instead of 'posterior_predictive'
+        synthetic_log_mean = (
+            post_pred.predictions["obs"].mean(dim=["chain", "draw"]).values
+        )
+
+        # 4. Transform back
+        new_df["synthetic_imports"] = np.exp(synthetic_log_mean) - 1
+
+        return new_df
+
+    def data_energy(self):
+        for file in os.listdir(path="data/raw/"):
+            if file[0:4] == "luma":
+                year = int(file[5:-4])
+                df = pl.read_csv(f"data/raw/{file}")
+                df = df.unpivot(
+                    on=["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
+                    index="muni",
+                    value_name="energy",
+                    variable_name="month",
+                )
+                df = df.with_columns(
+                    month=pl.col("month").cast(pl.Int16),
+                    energy=pl.col("energy").cast(pl.Float64),
+                    year=pl.lit(year),
+                )
+                df.write_parquet(f"{self.saving_dir}raw/energy-{year}.parquet")
+
+        data = self.conn.execute(
+            f"SELECT * FROM '{self.saving_dir}raw/energy-*.parquet';"
+        ).pl()
+        return data
 
     def get_best_match(self, name, choices, threshold=80):
         # process.extractOne returns (match, score, index)
