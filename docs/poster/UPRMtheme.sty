@@ -99,15 +99,16 @@
 		% This places the logos on the far left and right
 		{\noindent \@titlegraphic \par}
 
-		\vspace{-8cm} % Adjust this to pull the text back up if the logos create too much space
+		\vspace{-10cm} % Adjust this if needed
 
 		\centering
 		\color{titlefgcolor}
 		{\bfseries \Huge \sc \@title \par}
 		\vspace*{0.4em}
 		{\huge \@author \par}
-		\vspace*{0.4em}
+		\vspace*{0.2em}
+		{\Large \department \par} % <--- Add this line here
+		\vspace*{0.2em}
 		{\LARGE \@institute}
 	\end{minipage}
-}
-\makeatother
+}\makeatother
