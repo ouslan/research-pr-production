@@ -6,6 +6,7 @@ readme = "README.md"
 authors = [{ name = "Alejandro Ouslan", email = "alejandro.ouslan@upr.edu" }]
 requires-python = ">=3.12"
 dependencies = [
+    "altair[all]>=6.1.0",
     "arviz-plots[matplotlib,plotly]>=1.1.0",
     "bambi>=0.16.0",
     "censusforge>=0.7.0",
