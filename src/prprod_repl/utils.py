@@ -186,7 +186,7 @@ class ProdRepl(JPTrade):
     def reg_data(self):
         file_path = Path(self.saving_dir) / "raw" / "data.parquet"
 
-        if file_path.exists():
+        if not file_path.exists():
             df_qcew = self.data_qcew().to_pandas()
             gdf = self.county_geom()[["name", "geoid"]]
             gdf = pl.DataFrame(gdf)
