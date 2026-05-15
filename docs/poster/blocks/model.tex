@@ -1,0 +1,30 @@
+\block{Modelo}{
+	Para esta investigación se implemento una función de producción Cobb-Douglas espacio-temporal
+	en forma log-lineal para evaluar la resiliencia y el crecimiento diferenciado a nivel municipal
+	en Puerto Rico (2021-2024).
+
+	\vspace{0.5em}
+	El modelo asume una distribución Normal para las observaciones de energía ($\log y$):
+	\begin{equation}
+		\log(y_{i,j}) \sim \text{Normal}(\mu_{i,j}, \sigma_{\epsilon})
+	\end{equation}
+	Donde el valor esperado para el municipio $j$ en el tiempo $i$ se define como:
+	\begin{equation}
+		\mu_{i,j} = \alpha_j + \lambda_j t_i + \beta_{k,j} \log(k_{i,j}) + \beta_{l,j} \log(l_{i,j}) + \phi(t_i)
+	\end{equation}
+
+	\vspace{0.5em}
+	Las elasticidades de capital ($\beta_k$) y trabajo ($\beta_l$) comparten fuerza estadística a través de una
+	estructura jerárquica con priors informativos centrados en valores teóricos \cite{gordon2016rise}:
+	\begin{itemize}[leftmargin=1.5em]
+		\item $\beta_{k,j} \sim \text{Normal}(\mu_{\beta_k}, 0.05)$ con $\mu_{\beta_k} \approx 0.3$
+		\item $\beta_{l,j} \sim \text{Normal}(\mu_{\beta_l}, 0.05)$ con $\mu_{\beta_l} \approx 0.7$
+	\end{itemize}
+
+	\vspace{0.5em}
+	El componente temporal se descompone en dos capas críticas:
+	\begin{itemize}[leftmargin=1.5em]
+		\item \textbf{Tendencias Independientes ($\lambda_j$):} Las pendientes (\texttt{muni\_slope}) no son jerárquicas ($\sigma = 0.1$). Esto permite identificar "ganadores y perdedores" genuinos, evitando que las tendencias locales regresen a la media global.
+		\item \textbf{Componente Macro ($\phi(t)$):} Un Proceso Gaussiano en el Espacio de Hilbert (\textbf{HSGP}) captura choques sistémicos de la isla (inflación, cambios en la red eléctrica) mediante $m=20$ funciones de base.
+	\end{itemize}
+}
