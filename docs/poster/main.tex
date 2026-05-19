@@ -1,0 +1,57 @@
+\documentclass[20pt, margin=1in, innermargin=-3.5in, blockverticalspace=-0.15in]{tikzposter}
+\geometry{paperwidth=42in, paperheight=32.5in, top=0.1in}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath, amsfonts, amsthm, amssymb, mathrsfs}
+\usepackage{graphicx, adjustbox, enumitem}
+\usepackage[backend=biber,style=numeric]{biblatex}
+\usepackage{UPRMtheme}
+\usepackage{mwe}
+
+\addbibresource{refs.bib}
+
+% set theme parameters
+\tikzposterlatexaffectionproofoff
+\usetheme{UPRMTheme}
+\usecolorstyle{UPRMStyle}
+\usetitlestyle{Filled}
+
+\usepackage[scaled]{helvet}
+\renewcommand\familydefault{\sfdefault} 
+\usepackage[T1]{fontenc}
+
+\title{Estimando función de producción para municipios en PR}
+\author{Alejandro M. Ouslan}
+\newcommand{\department}{Departamento de Matemáticas}
+\institute{Recinto Universitario de Mayagüez}
+\titlegraphic{
+    \includegraphics[width=0.1\textwidth]{assets/uprm_logo.png}
+    \hfill 
+    \includegraphics[width=0.1\textwidth]{assets/math_logo.png}
+}
+
+\begin{document}
+\maketitle
+
+\begin{columns}
+	% --- COLUMN 1: Introduction ---
+	\column{0.25}
+	\input{blocks/resumen.tex}
+	\input{blocks/objective.tex}
+	\input{blocks/intro.tex}
+
+	% --- COLUMN 2: Methodology ---
+	\column{0.25}
+	\input{blocks/data.tex}
+
+	% --- COLUMN 3: Analysis ---
+	\column{0.25}
+	\input{blocks/model.tex}
+	\input{blocks/results.tex}
+
+	% --- COLUMN 4: Discussion & Closing ---
+	\column{0.25}
+	\input{blocks/results2.tex}
+	\input{blocks/conclutions.tex}
+	\input{blocks/references.tex}
+\end{columns}
+\end{document}

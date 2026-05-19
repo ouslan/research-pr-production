@@ -1,0 +1,114 @@
+% -- COLORS --
+
+% UPRM Primary Palette
+\definecolor{UPRMGreen}{HTML}{006838} % Official UPRM Green
+\definecolor{UPRMGold}{HTML}{D4AF37}  % Accents/Gold
+\definecolor{UPRMWhite}{HTML}{FFFFFF}
+
+% Neutrals
+\definecolor{Black}{HTML}{101820}
+\definecolor{CoolGray1}{HTML}{d9d9d9}
+
+% tikzposter color palette
+\definecolorpalette{UPRMPalette} {
+	\definecolor{colorOne}{named}{UPRMGreen}
+	\definecolor{colorTwo}{named}{UPRMGreen}
+	\definecolor{colorThree}{named}{UPRMGreen}
+}
+
+% tikzposter style
+\definecolorstyle{UPRMStyle} {
+	\usecolorpalette{UPRMPalette}
+}{
+	% background
+	\colorlet{backgroundcolor}{white}
+	\colorlet{framecolor}{white}
+	% title colors - MODIFIED: White background, Green text
+	\colorlet{titlefgcolor}{UPRMGreen}
+	\colorlet{titlebgcolor}{white}
+	% block colors
+	\colorlet{blocktitlebgcolor}{colorOne}
+	\colorlet{blocktitlefgcolor}{white}
+	\colorlet{blockbodybgcolor}{white}
+	\colorlet{blockbodyfgcolor}{Black}
+	% innerblock colors
+	\colorlet{innerblocktitlebgcolor}{white}
+	\colorlet{innerblocktitlefgcolor}{Black}
+	\colorlet{innerblockbodybgcolor}{CoolGray1}
+	\colorlet{innerblockbodyfgcolor}{Black}
+	% note colors
+	\colorlet{notefgcolor}{Black}
+	\colorlet{notebgcolor}{UPRMGold}
+	\colorlet{noteframecolor}{UPRMGold}
+}
+
+% -- STYLE --
+
+% background
+\definebackgroundstyle{UPRMBackgroundStyle}{
+	\draw[line width=0pt, color=framecolor, fill=backgroundcolor]
+	(bottomleft) rectangle (topright);
+}
+
+% title
+\definetitlestyle{UPRMTitleStyle}{
+	width=\textwidth, linewidth=2pt, titletotopverticalspace=0in
+}{
+	\begin{scope}[line width=\titlelinewidth,]
+		% Draws the background box
+		\draw[color=titlebgcolor, fill=titlebgcolor]
+		(\titleposleft,\titleposbottom) rectangle (\titleposright,\titlepostop);
+		% Draws the gold separator line at the bottom
+		\draw[color=UPRMGold, line width=5pt]
+		(\titleposleft,\titleposbottom)--(\titleposright,\titleposbottom);
+	\end{scope}
+}
+
+% block
+\defineblockstyle{UPRMBlockStyle}{
+	titlewidthscale=1,
+	bodywidthscale=1,
+	roundedcorners=5
+}{
+	\draw[color=framecolor, fill=blockbodybgcolor,
+		rounded corners=\blockroundedcorners] (blockbody.south west)
+	rectangle (blockbody.north east);
+	\ifBlockHasTitle
+		\draw[color=framecolor, fill=blocktitlebgcolor,
+			rounded corners=\blockroundedcorners] (blocktitle.south west)
+		rectangle (blocktitle.north east);
+	\fi
+}
+
+% -- THEME -- 
+\definelayouttheme{UPRMTheme}{
+	\usecolorstyle[colorPalette=UPRMPalette]{UPRMStyle}
+	\usebackgroundstyle{UPRMBackgroundStyle}
+	\usetitlestyle{UPRMTitleStyle}
+	\useblockstyle{UPRMBlockStyle}
+	\useinnerblockstyle{Default}
+	\usenotestyle{Default}
+}
+
+% -- TITLE FORMAT --
+\makeatletter
+\renewcommand\TP@maketitle{%
+	\centering
+	% Container for the logos and text
+	\begin{minipage}[b]{0.95\linewidth}
+		% This places the logos on the far left and right
+		{\noindent \@titlegraphic \par}
+
+		\vspace{-10cm} % Adjust this if needed
+
+		\centering
+		\color{titlefgcolor}
+		{\bfseries \Huge \sc \@title \par}
+		\vspace*{0.4em}
+		{\huge \@author \par}
+		\vspace*{0.2em}
+		{\Large \department \par} % <--- Add this line here
+		\vspace*{0.2em}
+		{\LARGE \@institute}
+	\end{minipage}
+}\makeatother

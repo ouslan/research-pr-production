@@ -220,3 +220,21 @@ __marimo__/
 *.csv
 *.parquet
 /data/qcew
+*.ddb
+
+
+# Remove Latex stuff
+*.aux
+*.fdb_latexmk
+*.fls 
+*.out
+*.gz
+*.nav
+*.snm
+*.toc
+*.run.xml
+*.bcf
+*.bbl
+*.bbl-SAVE-ERROR
+*.bcf-SAVE-ERROR
+*.blg
